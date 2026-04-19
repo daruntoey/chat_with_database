@@ -74,35 +74,42 @@ answer_prompt = """
 """
 
 # CORE LOGIC
+# CORE LOGIC
 def generate_summary_answer(user_question):
-    # 1. ดึง Schema จาก session_state มาใช้ใน Prompt
+    # 1. ดึง Schema และสร้าง Prompt
+    # Note: Ensure your script_prompt variable actually contains {question}, {table_name}, etc.
     script_prompt_input = script_prompt.format(
-    question=user_question,
-    table_name=data_table,
-    data_dict=data_dict_text
+        question=user_question,
+        table_name=data_table,
+        data_dict=data_dict_text
     )
-    sql_json_text = call_gemini(script_prompt_input, is_json=True)
+    
+    # FIX: Changed call_gemini -> generate_gemini_answer
+    sql_json_text = generate_gemini_answer(script_prompt_input, is_json=True)
+    
     try:
         sql_script = json.loads(sql_json_text)['script']
     except:
-        return "ขออภัย ไม่สามารถสร้างคำสั9ง SQL ได้"
+        return "ขออภัย ไม่สามารถสร้างคำสั่ง SQL ได้"
 
     # 2. Query ข้อมูล
     df_result = query_to_dataframe(sql_script, db_name)
     if isinstance(df_result, str):
         return df_result
+        
     # 3. สรุปคำตอบ
     answer_prompt_input = answer_prompt.format(
         question=user_question,
         raw_data=df_result.to_string()
     )
-    return call_gemini(answer_prompt_input, is_json=False)
+    
+    # FIX: Changed call_gemini -> generate_gemini_answer
+    return generate_gemini_answer(answer_prompt_input, is_json=False)
 
 # USER INTERFACE
-# ตรวจสอบและสร้าง Chat History ใน Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    
+
 st.title('Gemini Chat with Database')
 
 # แสดงประวัติการสนทนา
@@ -110,18 +117,14 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# รับ Input
 if prompt := st.chat_input("พิมพ์คำถามที่นี่..."):
-    # เก็บและแสดงข้อความ User
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # ประมวลผลและแสดงข้อความ Assistant
     with st.chat_message("assistant"):
         with st.spinner('กำลังหาคำตอบ...'):
             response = generate_summary_answer(prompt)
-            st.markdown(response) # Fix: Aligned with the line above
+            st.markdown(response)
 
-    # เก็บคำตอบลง Session
     st.session_state.messages.append({"role": "assistant", "content": response})
