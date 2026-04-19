@@ -5,36 +5,34 @@ from google import genai
 from google.genai import types
 import json
 
-# ดึง API Key
+# 1. API Setup
 gemini_api_key = st.secrets["gemini_api_key"]
 gmn_client = genai.Client(api_key=gemini_api_key)
 
-# รายละเอียดฐานข้อมูล
 db_name = 'test_database.db'
 data_table = 'transactions'
 data_dict_text = """
-- trx_date: วันที7ทำธุรกรรม
+- trx_date: วันที่ทำธุรกรรม
 - trx_no: หมายเลขธุรกรรม
 - member_code: รหัสสมาชิกของลูกค้า
-- branch_code: รหสั สาขา
-- branch_region: ภูมิภาคท7ีสาขาตังD อยู่
-- branch_province: จังหวัดท7ีสาขาตังD อยู่
-- product_code: รหสั สนิ ค้า
+- branch_code: รหัสสาขา
+- branch_region: ภูมิภาคที่สาขาตั้งอยู่
+- branch_province: จังหวัดที่สาขาตั้งอยู่
+- product_code: รหัสสินค้า
 - product_category: หมวดหมู่หลักของสินค้า
 - product_group: กลุ่มของสินค้า
 - product_type: ประเภทของสินค้า
-- order_qty: จำนวนชินD /หน่วย ท7ีลูกค้าสง7ั ซือD
-- unit_price: ราคาขายของสินค้าต่อ K หน่วย
-- cost: ต้นทุนของสินค้าต่อ K หน่วย
-- item_discount: ส่วนลดเฉพาะรายการสินค้านันD ๆ
+- order_qty: จำนวนชิ้น/หน่วย ที่ลูกค้าสั่งซื้อ
+- unit_price: ราคาขายของสินค้าต่อหน่วย
+- cost: ต้นทุนของสินค้าต่อหน่วย
+- item_discount: ส่วนลดเฉพาะรายการสินค้านั้นๆ
 - customer_discount: ส่วนลดจากสิทธิของลูกค้า
-- net_amount: ยอดขายสุทธิของรายการนันD
-- cost_amount: ต้นทุนรวมของรายการนันD
+- net_amount: ยอดขายสุทธิของรายการนั้น
+- cost_amount: ต้นทุนรวมของรายการนั้น
 """
 
-# HELPER FUNCTIONS
+# 2. HELPER FUNCTIONS
 def query_to_dataframe(sql_query, database_name):
-    print("""รัน SQL และคืนคา่ เป็น DataFrame""")
     try:
         connection = sqlite3.connect(database_name)
         result_df = pd.read_sql_query(sql_query, connection)
@@ -44,75 +42,70 @@ def query_to_dataframe(sql_query, database_name):
         return f"Database Error: {e}"
 
 def generate_gemini_answer(prompt, is_json=False):
-    print("""เรียก Gemini API""")
     try:
         config = types.GenerateContentConfig(
-        response_mime_type="application/json" if is_json else "text/plain" )
+            response_mime_type="application/json" if is_json else "text/plain" 
+        )
         response = gmn_client.models.generate_content(
-        model='gemini-2.5-flash-lite',
-        contents=prompt,
-        config=config)
+            model='gemini-2.0-flash-lite', # Updated to a valid model name
+            contents=prompt,
+            config=config)
         return response.text
     except Exception as e:
         return f"AI Error: {e}"
 
-# PROMPT TEMPLATES
+# 3. PROMPT TEMPLATES (Ensure placeholders match .format() keys)
 script_prompt = """
-### Goal
-### Context
-### Input
-### Process
-### Output
-(ห้ามมีคำอธิบายประกอบ หรือ Markdown นอกเหนือจาก JSON)
-"""
-answer_prompt = """
-### Goal
-### Context
-### Input
-### Process
-### Output
+Generate an SQL query based on this:
+Question: {question}
+Table: {table_name}
+Data Dictionary: {data_dict}
+Return ONLY JSON: {{"script": "SELECT ..."}}
 """
 
-# CORE LOGIC
-# CORE LOGIC
+answer_prompt = """
+Based on the data below, answer the user's question.
+Question: {question}
+Data: {raw_data}
+"""
+
+# 4. CORE LOGIC
 def generate_summary_answer(user_question):
-    # 1. ดึง Schema และสร้าง Prompt
-    # Note: Ensure your script_prompt variable actually contains {question}, {table_name}, etc.
+    # Step A: Generate SQL
     script_prompt_input = script_prompt.format(
         question=user_question,
         table_name=data_table,
         data_dict=data_dict_text
     )
     
-    # FIX: Changed call_gemini -> generate_gemini_answer
+    # FIXED: Use generate_gemini_answer here
     sql_json_text = generate_gemini_answer(script_prompt_input, is_json=True)
     
     try:
         sql_script = json.loads(sql_json_text)['script']
-    except:
-        return "ขออภัย ไม่สามารถสร้างคำสั่ง SQL ได้"
+    except Exception as e:
+        return f"ขออภัย ไม่สามารถสร้าง SQL ได้: {e}"
 
-    # 2. Query ข้อมูล
+    # Step B: Run Query
     df_result = query_to_dataframe(sql_script, db_name)
     if isinstance(df_result, str):
         return df_result
-        
-    # 3. สรุปคำตอบ
+
+    # Step C: Generate Final Answer
     answer_prompt_input = answer_prompt.format(
         question=user_question,
         raw_data=df_result.to_string()
     )
     
-    # FIX: Changed call_gemini -> generate_gemini_answer
+    # FIXED: Use generate_gemini_answer here
     return generate_gemini_answer(answer_prompt_input, is_json=False)
 
-# USER INTERFACE
+# 5. USER INTERFACE
+st.title('Gemini Chat with Database')
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-st.title('Gemini Chat with Database')
-
-# แสดงประวัติการสนทนา
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
