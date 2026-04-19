@@ -34,7 +34,7 @@ data_dict_text = """
 
 # HELPER FUNCTIONS
 def query_to_dataframe(sql_query, database_name):
-"""รัน SQL และคืนคา่ เป็น DataFrame"""
+    print("""รัน SQL และคืนคา่ เป็น DataFrame""")
     try:
         connection = sqlite3.connect(database_name)
         result_df = pd.read_sql_query(sql_query, connection)
@@ -44,7 +44,7 @@ def query_to_dataframe(sql_query, database_name):
         return f"Database Error: {e}"
 
 def generate_gemini_answer(prompt, is_json=False):
-"""เรียก Gemini API"""
+    print("""เรียก Gemini API""")
     try:
         config = types.GenerateContentConfig(
         response_mime_type="application/json" if is_json else "text/plain" )
