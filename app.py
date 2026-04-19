@@ -102,23 +102,25 @@ def generate_summary_answer(user_question):
 # ตรวจสอบและสร้าง Chat History ใน Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
+    
 st.title('Gemini Chat with Database')
+
 # แสดงประวัติการสนทนา
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # รับ Input
-if prompt := st.chat_input("พิมพ์คำถามที0นี0..."):
+if prompt := st.chat_input("พิมพ์คำถามที่นี่..."):
     # เก็บและแสดงข้อความ User
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-# ประมวลผลและแสดงข้อความ Assistant
-with st.chat_message("assistant"):
-    with st.spinner('กำลงั หาคำตอบ...'):
-        response = generate_summary_answer(prompt)
-            st.markdown(response)
+    # ประมวลผลและแสดงข้อความ Assistant
+    with st.chat_message("assistant"):
+        with st.spinner('กำลงั หาคำตอบ...'):
+            response = generate_summary_answer(prompt)
+                st.markdown(response)
 
-# เก็บคำตอบลง Session
-st.session_state.messages.append({"role": "assistant", "content": response})
+    # เก็บคำตอบลง Session
+    st.session_state.messages.append({"role": "assistant", "content": response})
