@@ -116,11 +116,12 @@ if prompt := st.chat_input("พิมพ์คำถามที่นี่..."
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
+
     # ประมวลผลและแสดงข้อความ Assistant
     with st.chat_message("assistant"):
-        with st.spinner('กำลงั หาคำตอบ...'):
+        with st.spinner('กำลังหาคำตอบ...'):
             response = generate_summary_answer(prompt)
-                st.markdown(response)
+            st.markdown(response) # Fix: Aligned with the line above
 
     # เก็บคำตอบลง Session
     st.session_state.messages.append({"role": "assistant", "content": response})
